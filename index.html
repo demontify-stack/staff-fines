@@ -89,8 +89,8 @@
             app.innerHTML = `
                 <h2>Вход в систему учета штрафов</h2>
                 <div class="form-group">
-                    <label>Введите ваш код сотрудника:</label>
-                    <input type="password" id="loginInput" placeholder="Введите код доступа...">
+                    <label>Введите ваш код сотрудника или ключ доступа:</label>
+                    <input type="password" id="loginInput" placeholder="Введите данные...">
                 </div>
                 <button onclick="handleLogin()">Войти</button>
                 <div id="loginError" class="error-msg"></div>
@@ -229,7 +229,8 @@
 
     function handleLogin() {
         const val = document.getElementById('loginInput').value.trim();
-        if (val === 'admin123') {
+        // Новый секретный пароль админа
+        if (val === 'admin_777_uz') {
             currentUser = 'admin';
             render();
             return;
@@ -292,7 +293,6 @@
             return;
         }
 
-        db.users.users = db.users || [];
         db.users.push({ name, code });
         saveDb();
         document.getElementById('empMsg').innerText = 'Сотрудник успешно добавлен!';
