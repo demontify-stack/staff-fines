@@ -89,8 +89,8 @@
             app.innerHTML = `
                 <h2>Вход в систему учета штрафов</h2>
                 <div class="form-group">
-                    <label>Введите ваш код сотрудника или ключ доступа:</label>
-                    <input type="password" id="loginInput" placeholder="Введите код...">
+                    <label>Введите ваш код сотрудника:</label>
+                    <input type="password" id="loginInput" placeholder="Введите код доступа...">
                 </div>
                 <button onclick="handleLogin()">Войти</button>
                 <div id="loginError" class="error-msg"></div>
@@ -240,7 +240,7 @@
             currentUser = foundUser;
             render();
         } else {
-            document.getElementById('loginError').innerText = 'Неверный код!';
+            document.getElementById('loginError').innerText = 'Неверный код доступа!';
         }
     }
 
@@ -292,6 +292,7 @@
             return;
         }
 
+        db.users.users = db.users || [];
         db.users.push({ name, code });
         saveDb();
         document.getElementById('empMsg').innerText = 'Сотрудник успешно добавлен!';
