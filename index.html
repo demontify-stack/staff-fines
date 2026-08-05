@@ -60,27 +60,62 @@
         th { background-color: #f8f9fa; }
         .success-msg { color: #137333; font-weight: bold; margin-top: 10px; }
         .error-msg { color: #d93025; font-weight: bold; margin-top: 10px; }
+        .loading { text-align: center; font-weight: bold; color: #1a73e8; margin: 20px 0; }
     </style>
 </head>
 <body>
 
 <div class="container" id="app">
-    </div>
+    <div class="loading">Загрузка данных из облака...</div>
+</div>
 
 <script>
-    let db = JSON.parse(localStorage.getItem('staff_fines_db')) || {
-        users: [
-            { name: "Sardorbek", code: "Sardor_0059" },
-            { name: "Anvar", code: "Anvar_0021" }
-        ],
+    // Настройки облачной базы JSONBin
+    const BIN_ID = "6a73ccf1da38895dfebf11c0";
+    const MASTER_KEY = "$2a$10$jTuyAJF08mKVXowd9NhTH.wK75eZNbhjhWhDqXjtN8GxzRyHbFYb2";
+
+    let db = {
+        users: [],
         fines: []
     };
 
-    function saveDb() {
-        localStorage.setItem('staff_fines_db', JSON.stringify(db));
+    let currentUser = null;
+
+    // Загрузка данных из облака при старте
+    async function loadDb() {
+        try {
+            let response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
+                headers: {
+                    "X-Master-Key": MASTER_KEY
+                }
+            });
+            let result = await response.json();
+            db = result.record;
+            if (!db.users) db.users = [];
+            if (!db.fines) db.fines = [];
+        } catch (error) {
+            console.error("Ошибка загрузки:", error);
+            alert("Не удалось загрузить данные из облака. Проверьте интернет.");
+        }
+        render();
     }
 
-    let currentUser = null;
+    // Сохранение данных в облако
+    async function saveDb() {
+        try {
+            await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-Master-Key": MASTER_KEY
+                },
+                body: JSON.stringify(db)
+            });
+        } catch (error) {
+            console.error("Ошибка сохранения:", error);
+            alert("Ошибка сохранения в облако!");
+        }
+    }
 
     function render() {
         const app = document.getElementById('app');
@@ -89,8 +124,8 @@
             app.innerHTML = `
                 <h2>Вход в систему учета штрафов</h2>
                 <div class="form-group">
-                    <label>Введите ваш код сотрудника или ключ доступа:</label>
-                    <input type="password" id="loginInput" placeholder="Введите данные...">
+                    <label>Введите ваш код сотрудника:</label>
+                    <input type="password" id="loginInput" placeholder="Введите код...">
                 </div>
                 <button onclick="handleLogin()">Войти</button>
                 <div id="loginError" class="error-msg"></div>
@@ -119,14 +154,14 @@
 
             app.innerHTML = `
                 <h2>Панель Администратора</h2>
-                <p class="success-msg">Вы вошли как администратор.</p>
+                <p class="success-msg">Вы вошли как администратор (облачная синхронизация активна).</p>
                 
                 <hr style="margin: 20px 0;">
                 
                 <h3>Добавить или обновить ошибки сотрудника за месяц</h3>
                 <div class="form-group">
                     <label>Выберите сотрудника:</label>
-                    <select id="fineEmployee">${employeeOptions}</select>
+                    <select id="fineEmployee">${employeeOptions || '<option value="">Нет сотрудников</option>'}</select>
                 </div>
                 <div class="form-group">
                     <label>Месяц:</label>
@@ -166,7 +201,7 @@
                 <h3>Удалить сотрудника</h3>
                 <div class="form-group">
                     <label>Выберите сотрудника для удаления:</label>
-                    <select id="deleteEmpCode">${deleteOptions}</select>
+                    <select id="deleteEmpCode">${deleteOptions || '<option value="">Нет сотрудников</option>'}</select>
                 </div>
                 <button class="danger" onclick="removeEmployee()">Удалить сотрудника</button>
 
@@ -229,7 +264,7 @@
 
     function handleLogin() {
         const val = document.getElementById('loginInput').value.trim();
-        // Новый секретный пароль админа
+        // Новый защищенный пароль администратора
         if (val === 'admin_777_uz') {
             currentUser = 'admin';
             render();
@@ -245,14 +280,14 @@
         }
     }
 
-    function saveFineRecord() {
+    async function saveFineRecord() {
         const empCode = document.getElementById('fineEmployee').value;
         const month = document.getElementById('fineMonth').value;
         const count = parseInt(document.getElementById('fineCount').value);
         const reason = document.getElementById('fineReason').value.trim();
         const amount = parseFloat(document.getElementById('fineAmount').value);
 
-        if (!month || isNaN(count) || !reason || isNaN(amount)) {
+        if (!empCode || !month || isNaN(count) || !reason || isNaN(amount)) {
             alert('Заполните все поля корректно!');
             return;
         }
@@ -261,25 +296,26 @@
         
         if (existingIndex !== -1) {
             db.fines[existingIndex] = { employeeCode: empCode, month, count, reason, amount };
-            document.getElementById('adminMsg').innerText = 'Запись успешно обновлена!';
+            document.getElementById('adminMsg').innerText = 'Обновление в облаке...';
         } else {
             db.fines.push({ employeeCode: empCode, month, count, reason, amount });
-            document.getElementById('adminMsg').innerText = 'Запись успешно добавлена!';
+            document.getElementById('adminMsg').innerText = 'Добавление в облако...';
         }
 
-        saveDb();
+        await saveDb();
+        document.getElementById('adminMsg').innerText = 'Успешно сохранено!';
         render();
     }
 
-    function deleteFine(index) {
+    async function deleteFine(index) {
         if (confirm('Точно удалить эту запись?')) {
             db.fines.splice(index, 1);
-            saveDb();
+            await saveDb();
             render();
         }
     }
 
-    function addEmployee() {
+    async function addEmployee() {
         const name = document.getElementById('newEmpName').value.trim();
         const code = document.getElementById('newEmpCode').value.trim();
 
@@ -294,17 +330,17 @@
         }
 
         db.users.push({ name, code });
-        saveDb();
-        document.getElementById('empMsg').innerText = 'Сотрудник успешно добавлен!';
+        await saveDb();
+        document.getElementById('empMsg').innerText = 'Сотрудник успешно добавлен в облако!';
         render();
     }
 
-    function removeEmployee() {
+    async function removeEmployee() {
         const code = document.getElementById('deleteEmpCode').value;
         if (confirm('Вы уверены, что хотите удалить сотрудника? Все его штрафы также будут удалены.')) {
             db.users = db.users.filter(u => u.code !== code);
             db.fines = db.fines.filter(f => f.employeeCode !== code);
-            saveDb();
+            await saveDb();
             render();
         }
     }
@@ -314,7 +350,8 @@
         render();
     }
 
-    render();
+    // Запускаем загрузку при старте страницы
+    loadDb();
 </script>
 
 </body>
