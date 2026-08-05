@@ -68,13 +68,12 @@
     </div>
 
 <script>
-    // База данных в localStorage
     let db = JSON.parse(localStorage.getItem('staff_fines_db')) || {
         users: [
             { name: "Sardorbek", code: "Sardor_0059" },
             { name: "Anvar", code: "Anvar_0021" }
         ],
-        fines: [] // { employeeCode, month, count, amount, reason }
+        fines: []
     };
 
     function saveDb() {
@@ -90,8 +89,8 @@
             app.innerHTML = `
                 <h2>Вход в систему учета штрафов</h2>
                 <div class="form-group">
-                    <label>Введите ваш код сотрудника (или пароль админа):</label>
-                    <input type="password" id="loginInput" placeholder="Например: Sardor_0059 или admin123">
+                    <label>Введите ваш код сотрудника или ключ доступа:</label>
+                    <input type="password" id="loginInput" placeholder="Введите код...">
                 </div>
                 <button onclick="handleLogin()">Войти</button>
                 <div id="loginError" class="error-msg"></div>
@@ -195,7 +194,6 @@
             return;
         }
 
-        // Интервал для сотрудника
         let myFines = db.fines.filter(f => f.employeeCode === currentUser.code);
         let myRows = myFines.map(f => `
             <tr>
@@ -242,7 +240,7 @@
             currentUser = foundUser;
             render();
         } else {
-            document.getElementById('loginError').innerText = 'Неверный код сотрудника или пароль админа!';
+            document.getElementById('loginError').innerText = 'Неверный код!';
         }
     }
 
@@ -258,15 +256,12 @@
             return;
         }
 
-        // Проверяем, есть ли уже запись за этот месяц для этого сотрудника (для обновления)
         let existingIndex = db.fines.findIndex(f => f.employeeCode === empCode && f.month === month);
         
         if (existingIndex !== -1) {
-            // Обновляем существующую
             db.fines[existingIndex] = { employeeCode: empCode, month, count, reason, amount };
             document.getElementById('adminMsg').innerText = 'Запись успешно обновлена!';
         } else {
-            // Создаем новую
             db.fines.push({ employeeCode: empCode, month, count, reason, amount });
             document.getElementById('adminMsg').innerText = 'Запись успешно добавлена!';
         }
@@ -318,7 +313,6 @@
         render();
     }
 
-    // Первый запуск
     render();
 </script>
 
