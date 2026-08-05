@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Учет штрафов сотрудников</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 700px;
+            margin: 30px auto;
+            background: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        h2 { margin-top: 0; color: #1a73e8; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+        }
+        button:hover { background-color: #1557b0; }
+        .error { color: #d93025; margin-top: 10px; text-align: center; }
+        .success { color: #28a745; margin-top: 10px; text-align: center; }
+        .hidden { display: none; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        th { background-color: #f8f9fa; }
+        .logout-btn {
+            background-color: #dc3545;
+            margin-top: 20px;
+        }
+        .logout-btn:hover { background-color: #c82333; }
+        .admin-section {
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 2px dashed #ddd;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div id="login-section">
+            <h2>Вход в систему</h2>
+            <p>Введите ваш персональный код доступа:</p>
+            <div class="form-group">
+                <input type="password" id="access-code" placeholder="Введите код">
+            </div>
+            <button onclick="login()">Войти</button>
+            <div id="error-msg" class="error"></div>
+        </div>
+
+        <div id="dashboard-section" class="hidden">
+            <h2 id="welcome-title">Личный кабинет</h2>
+            <p>Ваши зафиксированные штрафы:</p>
+            <div id="fines-container"></div>
+            <div id="total-container" style="margin-top: 15px; font-weight: bold; font-size: 18px;"></div>
+            <button class="logout-btn" onclick="logout()">Выйти</button>
+        </div>
+
+        <div id="admin-section" class="hidden">
+            <h2>Панель Администратора</h2>
+            <p style="color: #28a745; font-weight: bold;">Вы вошли как администратор.</p>
+
+            <div class="admin-section">
+                <h3>Добавить штраф сотруднику</h3>
+                <div class="form-group">
+                    <label>Выберите сотрудника:</label>
+                    <select id="admin-user-select"></select>
+                </div>
+                <div class="form-group">
+                    <label>Дата:</label>
+                    <input type="date" id="fine-date">
+                </div>
+                <div class="form-group">
+                    <label>Смена:</label>
+                    <select id="fine-shift">
+                        <option value="Дневная">Дневная</option>
+                        <option value="Ночная">Ночная</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Причина:</label>
+                    <input type="text" id="fine-reason" placeholder="Например: Опоздание">
+                </div>
+                <div class="form-group">
+                    <label>Сумма:</label>
+                    <input type="text" id="fine-amount" placeholder="Например: 50 000 сум">
+                </div>
+                <button onclick="addFine()">Добавить штраф</button>
+                <div id="admin-msg" class="success"></div>
+            </div>
+
+            <div class="admin-section">
+                <h3>Зарегистрировать нового сотрудника</h3>
+                <div class="form-group">
+                    <label>Имя Фамилия:</label>
+                    <input type="text" id="new-name" placeholder="Иван Иванов">
+                </div>
+                <div class="form-group">
+                    <label>Код доступа (Пин-код):</label>
+                    <input type="text" id="new-code" placeholder="Например: 4444">
+                </div>
+                <button onclick="addUser()" style="background-color: #28a745;">Создать сотрудника</button>
+                <div id="user-msg" class="success"></div>
+            </div>
+
+            <button class="logout-btn" onclick="logout()">Выйти из админки</button>
+        </div>
+    </div>
+
+    <script>
+        // Инициализация базы в памяти браузера, если её еще нет
+        if (!localStorage.getItem("fines_db")) {
+            const initialDb = {
+                "1111": {
+                    name: "Иван Иванов",
+                    fines: [
+                        { date: "10.05.2026", shift: "Дневная", reason: "Опоздание на смену", amount: "50 000 сум" },
+                        { date: "12.05.2026", shift: "Ночная", reason: "Нарушение формы", amount: "100 000 сум" }
+                    ]
+                },
+                "2222": {
+                    name: "Алексей Смирнов",
+                    fines: [
+                        { date: "02.06.2026", shift: "Дневная", reason: "Опоздание на 20 минут", amount: "30 000 сум" }
+                    ]
+                }
+            };
+            localStorage.setItem("fines_db", JSON.stringify(initialDb));
+        }
+
+        const ADMIN_PASSWORD = "admin123"; // Секретный пароль админа (ввод в то же поле входа)
+
+        function login() {
+            const code = document.getElementById("access-code").value.trim();
+            const errorMsg = document.getElementById("error-msg");
+            errorMsg.textContent = "";
+
+            if (code === ADMIN_PASSWORD) {
+                // Вход админа
+                document.getElementById("login-section").classList.add("hidden");
+                document.getElementById("admin-section").classList.remove("hidden");
+                document.getElementById("access-code").value = "";
+                updateAdminUserSelect();
+                return;
+            }
+
+            let db = JSON.parse(localStorage.getItem("fines_db"));
+
+            if (db[code]) {
+                // Вход сотрудника
+                const user = db[code];
+                document.getElementById("welcome-title").textContent = `Привет, ${user.name}!`;
+                
+                const finesContainer = document.getElementById("fines-container");
+                const totalContainer = document.getElementById("total-container");
+
+                if (user.fines.length === 0) {
+                    finesContainer.innerHTML = "<p style='color: green;'>У вас нет штрафов! Отличная работа 👍</p>";
+                    totalContainer.innerHTML = "";
+                } else {
+                    let tableHTML = `
+                        <table>
+                            <thead>
+                                <tr><th>Дата</th><th>Смена</th><th>Причина</th><th>Сумма</th></tr>
+                            </thead>
+                            <tbody>
+                    `;
+                    user.fines.forEach(fine => {
+                        tableHTML += `<tr><td>${fine.date}</td><td>${fine.shift}</td><td>${fine.reason}</td><td>${fine.amount}</td></tr>`;
+                    });
+                    tableHTML += `</tbody></table>`;
+                    finesContainer.innerHTML = tableHTML;
+                    totalContainer.innerHTML = `Всего штрафов: ${user.fines.length} шт.`;
+                }
+
+                document.getElementById("login-section").classList.add("hidden");
+                document.getElementById("dashboard-section").classList.remove("hidden");
+                document.getElementById("access-code").value = "";
+            } else {
+                errorMsg.textContent = "Неверный код доступа.";
+            }
+        }
+
+        function logout() {
+            document.getElementById("dashboard-section").classList.add("hidden");
+            document.getElementById("admin-section").classList.add("hidden");
+            document.getElementById("login-section").classList.remove("hidden");
+        }
+
+        function updateAdminUserSelect() {
+            let db = JSON.parse(localStorage.getItem("fines_db"));
+            const select = document.getElementById("admin-user-select");
+            select.innerHTML = "";
+            for (let code in db) {
+                let opt = document.createElement("option");
+                opt.value = code;
+                opt.textContent = `${db[code].name} (код: ${code})`;
+                select.appendChild(opt);
+            }
+        }
+
+        function addFine() {
+            const code = document.getElementById("admin-user-select").value;
+            const dateVal = document.getElementById("fine-date").value;
+            const shift = document.getElementById("fine-shift").value;
+            const reason = document.getElementById("fine-reason").value.trim();
+            const amount = document.getElementById("fine-amount").value.trim();
+            const msg = document.getElementById("admin-msg");
+
+            if (!dateVal || !reason || !amount) {
+                alert("Заполни все поля для штрафа!");
+                return;
+            }
+
+            const parts = dateVal.split("-");
+            const formattedDate = `${parts[2]}.${parts[1]}.${parts[0]}`;
+
+            let db = JSON.parse(localStorage.getItem("fines_db"));
+            db[code].fines.push({ date: formattedDate, shift, reason, amount });
+            localStorage.setItem("fines_db", JSON.stringify(db));
+
+            msg.textContent = "Штраф успешно добавлен!";
+            document.getElementById("fine-reason").value = "";
+            document.getElementById("fine-amount").value = "";
+            setTimeout(() => msg.textContent = "", 3000);
+        }
+
+        function addUser() {
+            const name = document.getElementById("new-name").value.trim();
+            const code = document.getElementById("new-code").value.trim();
+            const msg = document.getElementById("user-msg");
+
+            if (!name || !code) {
+                alert("Введи имя и код сотрудника!");
+                return;
+            }
+
+            let db = JSON.parse(localStorage.getItem("fines_db"));
+            if (db[code]) {
+                alert("Сотрудник с таким кодом уже существует!");
+                return;
+            }
+
+            db[code] = { name: name, fines: [] };
+            localStorage.setItem("fines_db", JSON.stringify(db));
+
+            msg.textContent = `Сотрудник ${name} создан!`;
+            document.getElementById("new-name").value = "";
+            document.getElementById("new-code").value = "";
+            updateAdminUserSelect();
+            setTimeout(() => msg.textContent = "", 3000);
+        }
+    </script>
+
+</body>
+</html>
