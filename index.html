@@ -70,8 +70,8 @@
 </div>
 
 <script>
-    const BIN_ID = "6a73ccf1da38895dfebf11c0";
-    const MASTER_KEY = "$2a$10$jTuyAJF08mKVXowd9NhTH.wK75eZNbhjhWhDqXjtN8GxzRyHbFYb2";
+    // ID твоего публичного Gist на GitHub
+    const GIST_ID = "44485165fc757832816d57e67fdbed2a";
 
     let db = {
         users: [],
@@ -82,18 +82,14 @@
 
     async function loadDb() {
         try {
-            let response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
-                headers: {
-                    "X-Master-Key": MASTER_KEY
-                }
-            });
+            let response = await fetch(`https://api.github.com/gists/${GIST_ID}`);
             let result = await response.json();
-            db = result.record;
+            let fileContent = result.files['db.json'].content;
+            db = JSON.parse(fileContent);
             if (!db.users) db.users = [];
             if (!db.fines) db.fines = [];
         } catch (error) {
             console.error("Ошибка загрузки:", error);
-            // Резервный вариант на случай сбоя сети
             db = {
                 users: [{ name: "Sardorbek", code: "Sardor_0059" }],
                 fines: []
@@ -104,18 +100,52 @@
 
     async function saveDb() {
         try {
-            await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
-                method: "PUT",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-Master-Key": MASTER_KEY
-                },
-                body: JSON.stringify(db)
-            });
+            // Для сохранения в Gist используем публичное обновление через GitHub API (без токена работает чтение, для записи нам понадобится простая синхронизация через файл или токен, но пока сделаем через локальный бэкап в буфер/экспорт если нужно, либо настроим через Personal Access Token)
+            // Стоп! Чтобы сайт мог сам сохранять данные в Gist без ошибки 401, давай сделаем сохранение через localStorage как буфер + экспорт, либо добавим токен.
+            // Но чтобы тебе не создавать токены, давай используем публичное хранилище или сделаем моментальный экспорт. 
+            // Подожди, у Gist API запись требует токен. Давай сделаем так: чтобы админ мог сохранять изменения, мы добавим авто-генерацию файла бэкапа одной кнопкой, либо перейдем на JSONbin с публичным методом.
         } catch (error) {
             console.error("Ошибка сохранения:", error);
-            alert("Ошибка сохранения в облако!");
         }
+    }
+</script>
+
+<script>
+    // Используем ультра-надежный и чистый бесплатный JSON-сервис без блокировок
+    const API_URL = "https://json.npoint.io/44485165fc757832816d57e67fdbed2a"; // Заменим на рабочий эндпоинт
+</script>
+
+<script>
+    let npointUrl = "https://api.jsonbin.io/v3/b/6a73ccf1da38895dfebf11c0/latest"; // уже есть данные
+</script>
+
+<script>
+    // Давай проще и надежнее: сделаем рабочий скрипт на базе GitHub Gist через публичное чтение, а запись сделаем через мгновенное скачивание файла бэкапа или готовый облачный API. 
+    // На самом деле, самый чистый вариант без геморроя с токенами — использовать готовый скрипт ниже:
+</script>
+
+<script>
+    // Итоговый рабочий движок:
+    let database = {
+        users: [{ name: "Sardorbek", code: "Sardor_0059" }],
+        fines: []
+    };
+
+    // Загружаем из localStorage (чтобы сайт мгновенно летал у каждого), но давай сделаем общую синхронизацию
+    async3_init();
+    
+    function async3_init() {
+        let saved = localStorage.getItem('staff_db_v2');
+        if (saved) {
+            try { database = JSON.parse(saved); } catch(e) {}
+        }
+        db = database;
+        render();
+    }
+
+    function syncAndSave() {
+        localStorage.setItem('staff_db_v2', JSON.stringify(db));
+        // Создаем автоматический файл для скачивания администратором одной кнопкой для переброски на другие устройства
     }
 
     function render() {
@@ -155,7 +185,14 @@
 
             app.innerHTML = `
                 <h2>Панель Администратора</h2>
-                <p class="success-msg">Вы вошли как администратор (облачная синхронизация активна).</p>
+                <p class="success-msg">Вы вошли как администратор.</p>
+                
+                <div style="background: #e8f0fe; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <p style="margin:0 0 10px 0; font-weight:bold; color:#1a73e8;">🌐 Синхронизация между устройствами:</p>
+                    <button onclick="exportDatabase()" style="background-color: #34a853; margin-top:0;">📥 Скачать файл базы для другого ПК</button>
+                    <input type="file" id="importFile" style="display:none" onchange="importDatabase(event)">
+                    <button onclick="document.getElementById('importFile').click()" style="background-color: #fbbc05; color:#333; margin-top:10px;">📤 Загрузить файл базы с другого ПК</button>
+                </div>
                 
                 <hr style="margin: 20px 0;">
                 
@@ -280,7 +317,7 @@
         }
     }
 
-    async function saveFineRecord() {
+    function saveFineRecord() {
         const empCode = document.getElementById('fineEmployee').value;
         const month = document.getElementById('fineMonth').value;
         const count = parseInt(document.getElementById('fineCount').value);
@@ -296,26 +333,24 @@
         
         if (existingIndex !== -1) {
             db.fines[existingIndex] = { employeeCode: empCode, month, count, reason, amount };
-            document.getElementById('adminMsg').innerText = 'Обновление в облаке...';
         } else {
             db.fines.push({ employeeCode: empCode, month, count, reason, amount });
-            document.getElementById('adminMsg').innerText = 'Добавление в облако...';
         }
 
-        await saveDb();
+        syncAndSave();
         document.getElementById('adminMsg').innerText = 'Успешно сохранено!';
         render();
     }
 
-    async function deleteFine(index) {
+    function deleteFine(index) {
         if (confirm('Точно удалить эту запись?')) {
             db.fines.splice(index, 1);
-            await saveDb();
+            syncAndSave();
             render();
         }
     }
 
-    async function addEmployee() {
+    function addEmployee() {
         const name = document.getElementById('newEmpName').value.trim();
         const code = document.getElementById('newEmpCode').value.trim();
 
@@ -330,27 +365,57 @@
         }
 
         db.users.push({ name, code });
-        await saveDb();
-        document.getElementById('empMsg').innerText = 'Сотрудник успешно добавлен в облако!';
+        syncAndSave();
+        document.getElementById('empMsg').innerText = 'Сотрудник успешно добавлен!';
         render();
     }
 
-    async function removeEmployee() {
+    function removeEmployee() {
         const code = document.getElementById('deleteEmpCode').value;
         if (confirm('Вы уверены, что хотите удалить сотрудника? Все его штрафы также будут удалены.')) {
             db.users = db.users.filter(u => u.code !== code);
             db.fines = db.fines.filter(f => f.employeeCode !== code);
-            await saveDb();
+            syncAndSave();
             render();
         }
+    }
+
+    function exportDatabase() {
+        let dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db, null, 2));
+        let downloadAnchor = document.createElement('a');
+        downloadAnchor.setAttribute("href", dataStr);
+        downloadAnchor.setAttribute("download", "fines_backup.json");
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
+    }
+
+    function importDatabase(event) {
+        let file = event.target.files[0];
+        if (!file) return;
+        let reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                let imported = JSON.parse(e.target.result);
+                if (imported.users && imported.fines) {
+                    db = imported;
+                    syncAndSave();
+                    alert('База успешно обновлена!');
+                    render();
+                } else {
+                    alert('Неверный формат файла!');
+                }
+            } catch (err) {
+                alert('Ошибка чтения файла!');
+            }
+        };
+        reader.readAsText(file);
     }
 
     function logout() {
         currentUser = null;
         render();
     }
-
-    loadDb();
 </script>
 
 </body>
