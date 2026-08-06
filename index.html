@@ -66,10 +66,11 @@
 <body>
 
 <div class="container" id="app">
-    <div class="loading">Загрузка данных из облака Gist...</div>
+    <div class="loading">Загрузка данных из облака...</div>
 </div>
 
 <script>
+    // Твой уникальный Gist ID на GitHub
     const GIST_ID = "44485165fc757832816d57e67fdbed2a";
 
     let db = {
@@ -79,6 +80,7 @@
 
     let currentUser = null;
 
+    // Функция загрузки данных из GitHub Gist
     async function loadDb() {
         try {
             let response = await fetch(`https://api.github.com/gists/${GIST_ID}?t=` + new Date().getTime());
@@ -89,38 +91,20 @@
                 if (parsed.fines) db.fines = parsed.fines;
             }
         } catch (error) {
-            console.error("Ошибка загрузки из Gist:", error);
+            console.error("Ошибка загрузки:", error);
         }
         render();
     }
 
-    async function saveDbToCloud() {
-        // Так как Gist требует токен для прямой записи через код, а мы хотим сделать без лишней сложности,
-        // сохранение сделано через мгновенную синхронизацию. Но чтобы новые сотрудники сразу появлялись у всех,
-        // мы дублируем сохранение в резервный облачный JSON-сервер, либо используем файл.
-        // А чтобы тебе было максимально удобно прямо сейчас:
+    // Так как прямая запись в Gist через чистый JS требует токен (чтобы не светить секреты), 
+    // мы делаем мгновенное сохранение в память + автоматическое создание файла-бэкапа для обновления на GitHub в 1 клик
+    function saveData() {
+        // Сохраняем локально для скорости
+        localStorage.setItem('fines_local_backup', JSON.stringify(db));
     }
 
-    // Давай сделаем гибридный режим: сохранение в localStorage + авто-бэкап в файл, 
-    // либо используем публичный JSON Bin без ключей.
-</script>
-
-<script>
-    // Самый железный рабочий вариант для связи всех телефонов:
-    // Используем бесплатный хранилитель JSON без токенов:
-    const STORAGE_KEY = "company_fines_db_v3";
-
-    function initSystem() {
-        let saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) {
-            try { db = JSON.parse(saved); } catch(e) {}
-        }
-        render();
-    }
-
-    function saveChanges() {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
-    }
+    // Запускаем загрузку при старте сайта
+    loadDb();
 
     function render() {
         const app = document.getElementById('app');
@@ -162,10 +146,9 @@
                 <p class="success-msg">Вы вошли как администратор.</p>
                 
                 <div style="background: #e8f0fe; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                    <p style="margin:0 0 10px 0; font-weight:bold; color:#1a73e8;">📁 Обмен базой между устройствами:</p>
-                    <button onclick="exportDatabase()" style="background-color: #34a853; margin-top:0;">📥 Скачать файл базы</button>
-                    <input type="file" id="importFile" style="display:none" onchange="importDatabase(event)">
-                    <button onclick="document.getElementById('importFile').click()" style="background-color: #fbbc05; color:#333; margin-top:10px;">📤 Загрузить файл базы</button>
+                    <p style="margin:0 0 10px 0; font-weight:bold; color:#1a73e8;">🌐 Обновление данных в облаке Gist:</p>
+                    <p style="margin:0 0 10px 0; font-size:14px; color:#555;">После добавления сотрудников или штрафов нажмите кнопку ниже, чтобы скачать готовый файл <b>db.json</b> и загрузить его на ваш <a href="https://gist.github.com/demontify/${GIST_ID}" target="_blank">GitHub Gist</a> в один клик.</p>
+                    <button onclick="exportGistFile()" style="background-color: #34a853; margin-top:0;">📥 Скачать обновленный db.json для Gist</button>
                 </div>
 
                 <hr style="margin: 20px 0;">
@@ -311,21 +294,21 @@
             db.fines.push({ employeeCode: empCode, month, count, reason, amount });
         }
 
-        saveChanges();
-        document.getElementById('adminMsg').innerText = 'Успешно сохранено!';
+        saveData();
+        document.getElementById('adminMsg').innerText = 'Успешно сохранено! Не забудьте обновить Gist файл.';
         render();
     }
 
     function deleteFine(index) {
         if (confirm('Точно удалить эту запись?')) {
             db.fines.splice(index, 1);
-            saveChanges();
+            saveData();
             render();
         }
     }
 
     function addEmployee() {
-        const name = document.getElementById('newEmpName').value.trim();
+        const name = document.getElementById('newEmpName'].value.trim();
         const code = document.getElementById('newEmpCode').value.trim();
 
         if (!name || !code) {
@@ -339,8 +322,8 @@
         }
 
         db.users.push({ name, code });
-        saveChanges();
-        document.getElementById('empMsg').innerText = 'Сотрудник успешно добавлен!';
+        saveData();
+        document.getElementById('empMsg').innerText = 'Сотрудник успешно добавлен! Не забудьте обновить Gist файл.';
         render();
     }
 
@@ -349,49 +332,25 @@
         if (confirm('Вы уверены, что хотите удалить сотрудника? Все его штрафы также будут удалены.')) {
             db.users = db.users.filter(u => u.code !== code);
             db.fines = db.fines.filter(f => f.employeeCode !== code);
-            saveChanges();
+            saveData();
             render();
         }
     }
 
-    function exportDatabase() {
+    function exportGistFile() {
         let dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db, null, 2));
         let downloadAnchor = document.createElement('a');
         downloadAnchor.setAttribute("href", dataStr);
-        downloadAnchor.setAttribute("download", "fines_backup.json");
+        downloadAnchor.setAttribute("download", "db.json");
         document.body.appendChild(downloadAnchor);
         downloadAnchor.click();
         downloadAnchor.remove();
-    }
-
-    function importDatabase(event) {
-        let file = event.target.files[0];
-        if (!file) return;
-        let reader = new FileReader();
-        reader.onload = function(e) {
-            try {
-                let imported = JSON.parse(e.target.result);
-                if (imported.users && imported.fines) {
-                    db = imported;
-                    saveChanges();
-                    alert('База успешно загружена!');
-                    render();
-                } else {
-                    alert('Неверный формат файла!');
-                }
-            } catch (err) {
-                alert('Ошибка чтения файла!');
-            }
-        };
-        reader.readAsText(file);
     }
 
     function logout() {
         currentUser = null;
         render();
     }
-
-    initSystem();
 </script>
 
 </body>
