@@ -70,7 +70,6 @@
 </div>
 
 <script>
-    // Настройки облачной базы JSONBin
     const BIN_ID = "6a73ccf1da38895dfebf11c0";
     const MASTER_KEY = "$2a$10$jTuyAJF08mKVXowd9NhTH.wK75eZNbhjhWhDqXjtN8GxzRyHbFYb2";
 
@@ -81,7 +80,6 @@
 
     let currentUser = null;
 
-    // Загрузка данных из облака при старте
     async function loadDb() {
         try {
             let response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
@@ -95,12 +93,15 @@
             if (!db.fines) db.fines = [];
         } catch (error) {
             console.error("Ошибка загрузки:", error);
-            alert("Не удалось загрузить данные из облака. Проверьте интернет.");
+            // Резервный вариант на случай сбоя сети
+            db = {
+                users: [{ name: "Sardorbek", code: "Sardor_0059" }],
+                fines: []
+            };
         }
         render();
     }
 
-    // Сохранение данных в облако
     async function saveDb() {
         try {
             await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
@@ -264,7 +265,6 @@
 
     function handleLogin() {
         const val = document.getElementById('loginInput').value.trim();
-        // Новый защищенный пароль администратора
         if (val === 'admin_777_uz') {
             currentUser = 'admin';
             render();
@@ -350,7 +350,6 @@
         render();
     }
 
-    // Запускаем загрузку при старте страницы
     loadDb();
 </script>
 
